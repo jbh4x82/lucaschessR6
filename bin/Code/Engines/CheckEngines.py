@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 from typing import List, Set, Optional
 
@@ -41,6 +42,12 @@ class StockfishManager:
         return self._cpu_flags
 
     def check(self, check_again: bool = False) -> bool:
+        # Only the x86 builds ship as a family of CPU-specific binaries to pick
+        # from; on other architectures (Apple silicon) there is a single build
+        # already compiled for the host, so there is nothing to select.
+        if platform.machine().lower() not in ("x86_64", "amd64", "i386", "i686"):
+            return True
+
         conf = self._get_stockfish_config()
         if not conf:
             return True
@@ -100,6 +107,9 @@ class StockfishManager:
     def _read_versions(conf) -> List[str]:
         folder = os.path.dirname(conf.path_exe)
         path = Util.opj(folder, "versions.txt")
+
+        if not Util.exist_file(path):
+            return []
 
         with open(path, "rt") as f:
             return [line.strip() for line in f if "x86-64" in line]

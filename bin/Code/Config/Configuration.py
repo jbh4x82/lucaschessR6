@@ -296,6 +296,10 @@ class Configuration:
             self._dic_books = {}
 
             def add_folder(folder):
+                # Not every engine is available on every platform, so its folder
+                # (and the books shipped inside it) may not exist.
+                if not os.path.isdir(folder):
+                    return
                 entry: os.DirEntry
                 for entry in os.scandir(folder):
                     if entry.is_dir():
@@ -309,7 +313,7 @@ class Configuration:
         return self._dic_books
 
     def path_book(self, alias):
-        return self.dic_books[alias]
+        return self.dic_books.get(alias)
 
     def read_eval(self):
         return {key[7:]: getattr(self, key) for key in dir(self) if key.startswith("x_eval_")}

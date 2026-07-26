@@ -122,6 +122,11 @@ char *move2str(MoveBin move, char *str_dest) {
  */
 #ifndef _WIN32
 
+/* Linux / macOS: glibc exposes select()+timeval via <sys/types.h>, libc on
+   macOS does not, so pull in the POSIX headers explicitly. */
+#include <sys/select.h>
+#include <sys/time.h>
+
 /* Linux */
 bool bioskey() {
     fd_set readfds;

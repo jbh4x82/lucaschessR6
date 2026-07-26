@@ -44,7 +44,7 @@ def _lf_title_filter(extension, titulo):
         filtro = extension
     else:
         pathext = f"*.{extension}"
-        if extension == "*" and Util.is_linux():
+        if extension == "*" and Util.is_posix():
             pathext = "*"
         filtro = f"{_('File')} {extension} ({pathext})"
     return titulo, filtro

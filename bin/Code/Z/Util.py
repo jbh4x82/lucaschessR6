@@ -97,11 +97,22 @@ def is_windows() -> bool:
     return sys.platform == "win32"
 
 
+def is_macos() -> bool:
+    return sys.platform == "darwin"
+
+
+def is_posix() -> bool:
+    """True on Linux and macOS: use it for POSIX behaviour (permissions, nice
+    values, file dialogs) rather than is_linux(), which means "Linux only"
+    (ELF shared libraries, Wayland, the e-board drivers)."""
+    return not is_windows()
+
+
 def create_folder(folder: Union[str, Path]) -> bool:
     folder_path = Path(folder)
     try:
         folder_path.mkdir()
-        if is_linux():
+        if is_posix():
             folder_path.chmod(
                 stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
             )
@@ -116,7 +127,7 @@ def rename_folder(old_folder: Union[str, Path], new_name: Union[str, Path]) -> b
 
     try:
         old_path.rename(new_path)
-        if is_linux():
+        if is_posix():
             new_path.chmod(
                 stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
             )
@@ -131,7 +142,7 @@ def check_folders(folder: Union[str, Path]) -> bool:
         if not folder_path.is_dir():
             try:
                 folder_path.mkdir(parents=True, exist_ok=True)
-                if is_linux():
+                if is_posix():
                     folder_path.chmod(
                         stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
                     )

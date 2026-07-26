@@ -1,2 +1,14 @@
 UserData/
 
+
+# macOS build artefacts
+__pycache__/
+*.pyc
+.venv/
+bin/FasterCode*.so
+bin/OS/darwin/_build/
+bin/_fastercode/libirina.a
+bin/_fastercode/src/FasterCode.c
+bin/_fastercode/src/FasterCode.pyx
+bin/_fastercode/src/build/
+bin/_fastercode/src/FasterCode*.so

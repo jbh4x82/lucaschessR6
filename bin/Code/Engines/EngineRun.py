@@ -165,7 +165,7 @@ class EngineRun(QtCore.QObject):
         self.process.setWorkingDirectory(engine_dir)
         args = self.config.args or []
 
-        if Util.is_linux():
+        if Util.is_posix():
             if os.path.isfile(path_exe) and not os.access(path_exe, os.X_OK):
                 import stat
                 try:
@@ -177,12 +177,14 @@ class EngineRun(QtCore.QObject):
                     self._log_exception(f"Could not add execution permission to {path_exe}")
 
             # para los motores linux que cargan librerías
+            # (macOS uses DYLD_LIBRARY_PATH for the same purpose)
+            var_library_path = "DYLD_LIBRARY_PATH" if Util.is_macos() else "LD_LIBRARY_PATH"
             env = QtCore.QProcessEnvironment.systemEnvironment()
-            if env.contains("LD_LIBRARY_PATH"):
-                new_path = f"{engine_dir}:{env.value('LD_LIBRARY_PATH')}"
+            if env.contains(var_library_path):
+                new_path = f"{engine_dir}:{env.value(var_library_path)}"
             else:
                 new_path = engine_dir
-            env.insert("LD_LIBRARY_PATH", new_path)
+            env.insert(var_library_path, new_path)
             self.process.setProcessEnvironment(env)
 
         self.process.start(path_exe, arguments=args)
