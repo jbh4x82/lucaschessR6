@@ -10,7 +10,7 @@ Lucas Chess (R6)
 > [`bin/OS/darwin/README.md`](bin/OS/darwin/README.md).
 >
 > **Ready to run, no Python or compiler needed:**
-> [download the disk image](https://bolzano.at/chess/mac/) (276 MB, macOS 12+ on Apple
+> [download the disk image](https://bolzano.uk/chess/mac/) (276 MB, macOS 12+ on Apple
 > silicon). Drag it onto Applications; the first launch needs right-click > Open, because
 > the build is not notarized.
 >
