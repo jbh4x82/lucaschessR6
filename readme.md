@@ -9,6 +9,13 @@ Lucas Chess (R6)
 > and the verification suite are in
 > [`bin/OS/darwin/README.md`](bin/OS/darwin/README.md).
 >
+> **Ready to run, no Python or compiler needed:**
+> [download the disk image](https://bolzano.at/chess/mac/) (276 MB, macOS 12+ on Apple
+> silicon). Drag it onto Applications; the first launch needs right-click > Open, because
+> the build is not notarized.
+>
+> To build it from source instead:
+>
 >     brew install git-lfs sevenzip && git lfs install
 >     git clone --branch macos-arm64 https://github.com/jbh4x82/lucaschessR6.git
 >     cd lucaschessR6
