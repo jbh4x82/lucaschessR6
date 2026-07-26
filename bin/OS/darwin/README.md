@@ -6,6 +6,10 @@ equivalent of `bin/OS/linux`: `Code/__init__.py` resolves `bin/OS/<platform>`
 and puts it on `sys.path`, so on macOS it finds `OSEngines.py` and the engines
 here.
 
+<p align="center">
+  <img src="../../../docs/screenshot-macos.png" alt="Lucas Chess R 6.0.4 running natively on macOS (Apple Silicon)" width="560">
+</p>
+
     build_engines.py   builds the bundled engine sources for macOS
     OSEngines.py       the engine catalogue (reuses the Linux one, see below)
     run_tests.py       verification suite for the whole macOS build

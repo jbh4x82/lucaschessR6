@@ -17,6 +17,12 @@ Lucas Chess (R6)
 >     python3 bin/OS/darwin/build_engines.py
 >     ./LucasChess.command
 
+<p align="center">
+  <img src="docs/screenshot-macos.png" alt="Lucas Chess R 6.0.4 running natively on macOS (Apple Silicon)" width="620">
+  <br>
+  <em>R 6.0.4 running natively on macOS 26.5, Apple Silicon</em>
+</p>
+
 Lucas Chess (R6) is a GUI of chess:
 
 1. To train in many different ways.
