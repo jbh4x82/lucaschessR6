@@ -181,6 +181,22 @@ disk image, signs and notarizes that too, and prints the Gatekeeper verdict for
 both. `--no-notarize` signs without submitting; `--identity` picks a specific
 certificate.
 
+Two things about notarization that cost real time here:
+
+* **`notarytool store-credentials` writes to the data-protection keychain**,
+  which a non-interactive session cannot read back. The credentials validate on
+  save and every later call then reports "No Keychain password item found for
+  profile", which looks exactly like the profile disappearing. `package_app.py`
+  therefore reads an app-specific password from the ordinary keychain
+  (`security find-generic-password -s lucaschess-notary`) and passes it inline.
+* **Notarization is asynchronous and can take hours.** One submission of this
+  bundle sat "In Progress" for two hours while Apple's status page reported the
+  service healthy; a second submission of the identical payload was accepted at
+  the same moment as the first. `--resume` exists for that: the ticket lives on
+  Apple's servers, so it staples onto the app already on disk and carries on
+  with the disk image, instead of rebuilding and resubmitting half a gigabyte.
+  Both the app and the disk image get their own submission and their own staple.
+
 The hardened runtime needs entitlements a frozen CPython cannot do without:
 `allow-jit` and `allow-unsigned-executable-memory` (it generates code at
 runtime), `disable-library-validation` (it dlopen()s extension modules), and
