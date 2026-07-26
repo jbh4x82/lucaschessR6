@@ -1,6 +1,22 @@
 Lucas Chess (R6)
 ================
 
+> **This branch adds macOS (Apple Silicon) support.** It is a fork of
+> [lukasmonk/lucaschessR6](https://github.com/lukasmonk/lucaschessR6); everything below is
+> the upstream readme. The app runs natively on macOS/arm64, with FasterCode and 18 of the
+> bundled engines (including Stockfish 18 and Irina) compiled from the `src.7z` archives
+> already in the repository. Build instructions, the list of what does and does not compile,
+> and the verification suite are in
+> [`bin/OS/darwin/README.md`](bin/OS/darwin/README.md).
+>
+>     brew install git-lfs sevenzip && git lfs install
+>     git clone --branch macos-arm64 https://github.com/jbh4x82/lucaschessR6.git
+>     cd lucaschessR6
+>     python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt cython
+>     bin/_fastercode/fastercode_macos.sh
+>     python3 bin/OS/darwin/build_engines.py
+>     ./LucasChess.command
+
 Lucas Chess (R6) is a GUI of chess:
 
 1. To train in many different ways.
