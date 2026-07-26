@@ -48,6 +48,27 @@ APP_NAME = "Lucas Chess R6"
 
 # Shown in the disk image. macOS 15 removed the old right-click > Open bypass,
 # so unsigned apps now have to be approved in System Settings.
+TEAM_ID = "QVF7W32W9J"
+
+# Hardened runtime is required for notarization, and a frozen CPython needs
+# these exemptions under it: it generates code at runtime, and it dlopen()s
+# extension modules that were signed separately.
+ENTITLEMENTS = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+</dict>
+</plist>
+"""
+
 GATEKEEPER_INSTRUCTIONS = """The first time you open it, macOS will refuse and say it "could not verify
 this app is free of malware". That is because the app is not notarized with a
 paid Apple Developer certificate, not because anything is wrong with it.
@@ -199,6 +220,19 @@ def disk_size_mb(path: Path) -> float:
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, check=True, **kwargs)
+
+
+def sh(cmd: list[str]) -> subprocess.CompletedProcess:
+    """Run a command without raising, for the ones whose exit code is the answer."""
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def _is_macho(path: Path) -> bool:
+    try:
+        with path.open("rb") as fh:
+            return fh.read(4) in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xce\xfa\xed\xfe")
+    except OSError:
+        return False
 
 
 def discover_imports() -> list[str]:
@@ -439,29 +473,122 @@ def build_app(spec: Path) -> Path:
     return app
 
 
-def fix_and_sign(app: Path) -> None:
-    """Make every bundled engine executable again and ad-hoc sign the bundle.
-
-    PyInstaller copies data files without their exec bit, and code on Apple
-    silicon has to carry at least an ad-hoc signature to run at all."""
+def restore_engine_permissions(app: Path) -> None:
+    """PyInstaller copies data files without their exec bit, so the engines
+    arrive in the bundle unrunnable."""
     engines_dir = app / "Contents" / "Resources" / "lucaschess" / "bin" / "OS" / "darwin" / "Engines"
     fixed = 0
     for path in engines_dir.rglob("*"):
-        if path.is_file() and path.read_bytes()[:4] in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"):
+        if path.is_file() and _is_macho(path):
             path.chmod(0o755)
             fixed += 1
     log(f"   restored the executable bit on {fixed} engine binaries")
 
-    # Sign the engines first, then the bundle as a whole.
+
+def sign_adhoc(app: Path) -> None:
+    """Fallback when no Developer ID certificate is installed. Code on Apple
+    silicon needs at least an ad-hoc signature to run at all, but an ad-hoc
+    signature cannot be notarized, so the user meets Gatekeeper."""
+    engines_dir = app / "Contents" / "Resources" / "lucaschess" / "bin" / "OS" / "darwin" / "Engines"
     for path in sorted(engines_dir.rglob("*")):
         if path.is_file() and os.access(path, os.X_OK):
-            subprocess.run(
-                ["codesign", "--force", "--sign", "-", "--timestamp=none", str(path)],
-                capture_output=True,
-            )
+            sh(["codesign", "--force", "--sign", "-", "--timestamp=none", str(path)])
     run(["codesign", "--force", "--deep", "--sign", "-", "--timestamp=none", str(app)], capture_output=True)
-    result = subprocess.run(["codesign", "--verify", "--verbose=2", str(app)], capture_output=True, text=True)
-    log(f"   codesign --verify: {'ok' if result.returncode == 0 else result.stderr.strip()}")
+    result = sh(["codesign", "--verify", "--verbose=2", str(app)])
+    log(f"   ad-hoc signed, codesign --verify: {'ok' if result.returncode == 0 else result.stderr.strip()}")
+
+
+def find_signing_identity(preferred: str | None = None) -> str | None:
+    """The Developer ID Application certificate, if one is installed.
+
+    Only that kind is accepted for distribution outside the App Store; an
+    "Apple Development" certificate cannot be notarized."""
+    if preferred:
+        return preferred
+    result = sh(["security", "find-identity", "-v", "-p", "codesigning"])
+    for line in result.stdout.splitlines():
+        if "Developer ID Application" in line:
+            return line.split('"')[1]
+    return None
+
+
+def sign_bundle(app: Path, identity: str) -> None:
+    """Sign every Mach-O inside the bundle, then the bundle itself.
+
+    Inner code has to be signed before the enclosing bundle, or the outer
+    signature seals a stale hash - hence the deepest paths first. Everything
+    gets the hardened runtime and a secure timestamp, both required to notarize.
+    """
+    entitlements = BUILD_DIR / "entitlements.plist"
+    entitlements.write_text(ENTITLEMENTS)
+
+    inner = [
+        path
+        for path in app.rglob("*")
+        if not path.is_symlink() and path.is_file() and (path.suffix in (".so", ".dylib") or _is_macho(path))
+    ]
+
+    log(f"   signing {len(inner)} inner binaries as {identity!r}")
+    base = ["codesign", "--force", "--timestamp", "--options", "runtime", "--entitlements", str(entitlements)]
+    for path in sorted(inner, key=lambda item: len(item.parts), reverse=True):
+        result = sh(base + ["--sign", identity, str(path)])
+        if result.returncode != 0:
+            log(f"     {path.name}: {result.stderr.strip().splitlines()[-1]}")
+
+    log("   signing the bundle")
+    run(base + ["--sign", identity, str(app)], capture_output=True)
+
+    verify = sh(["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)])
+    log(f"   codesign --verify --deep --strict: {'ok' if verify.returncode == 0 else verify.stderr.strip()}")
+
+
+def notarize(path: Path, profile: str) -> bool:
+    """Submit to Apple, then staple the ticket onto the artefact.
+
+    A .app has to be zipped to be submitted; a .dmg goes as it is. Stapling
+    means the artefact still validates when the user is offline."""
+    if path.suffix == ".app":
+        payload = BUILD_DIR / "notarize.zip"
+        payload.unlink(missing_ok=True)
+        run(["ditto", "-c", "-k", "--keepParent", str(path), str(payload)])
+    else:
+        payload = path
+
+    log(f"   submitting {payload.name}, Apple usually takes a few minutes")
+    result = sh(
+        ["xcrun", "notarytool", "submit", str(payload), "--keychain-profile", profile, "--wait", "--timeout", "45m"]
+    )
+    output = result.stdout + result.stderr
+    for line in output.splitlines():
+        if line.strip().startswith(("id:", "status:", "message:")):
+            log(f"     {line.strip()}")
+
+    if "status: Accepted" not in output:
+        submission = next(
+            (line.split("id:")[1].strip() for line in output.splitlines() if line.strip().startswith("id:")),
+            "",
+        )
+        if submission:
+            detail = sh(["xcrun", "notarytool", "log", submission, "--keychain-profile", profile])
+            log("   why it was rejected:")
+            for line in detail.stdout.strip().splitlines()[:40]:
+                log(f"     {line}")
+        return False
+
+    run(["xcrun", "stapler", "staple", str(path)], capture_output=True)
+    stapled = sh(["xcrun", "stapler", "validate", str(path)])
+    log(f"   stapled: {'ok' if stapled.returncode == 0 else stapled.stdout.strip()}")
+    return True
+
+
+def gatekeeper_verdict(path: Path) -> str:
+    """What macOS will decide when a user opens this, as the user would see it."""
+    if path.suffix == ".dmg":
+        cmd = ["spctl", "-a", "-vvv", "-t", "open", "--context", "context:primary-signature"]
+    else:
+        cmd = ["spctl", "-a", "-vvv", "-t", "exec"]
+    result = sh(cmd + [str(path)])
+    return (result.stderr or result.stdout).strip().replace("\n", " ")
 
 
 def build_dmg(app: Path) -> Path:
@@ -511,6 +638,16 @@ def build_dmg(app: Path) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--no-dmg", action="store_true", help="stop after building the .app")
+    parser.add_argument(
+        "--identity",
+        help='Developer ID Application certificate to sign with (default: the one installed, if any)',
+    )
+    parser.add_argument(
+        "--notary-profile",
+        default="lucaschess",
+        help="notarytool keychain profile, created with: xcrun notarytool store-credentials",
+    )
+    parser.add_argument("--no-notarize", action="store_true", help="sign but do not submit to Apple")
     args = parser.parse_args()
 
     if sys.platform != "darwin":
@@ -535,7 +672,21 @@ def main() -> int:
     log(f"   {app.name}: {app_mb:.0f} MB")
 
     log(":: 5/6 signing")
-    fix_and_sign(app)
+    restore_engine_permissions(app)
+    identity = find_signing_identity(args.identity)
+    if identity:
+        sign_bundle(app, identity)
+    else:
+        log("   no Developer ID Application certificate found, falling back to ad-hoc")
+        sign_adhoc(app)
+
+    notarized = False
+    if identity and not args.no_notarize:
+        log("   notarizing the app")
+        notarized = notarize(app, args.notary_profile)
+        if not notarized:
+            log("   notarization failed, the disk image will still be built")
+    log(f"   Gatekeeper on the app: {gatekeeper_verdict(app)}")
 
     if args.no_dmg:
         log(f"\n:: done in {time.time() - started:.0f}s -> {app}")
@@ -545,9 +696,19 @@ def main() -> int:
     dmg = build_dmg(app)
     log(f"   {dmg.name}: {dmg.stat().st_size / 1e6:.0f} MB")
 
+    if identity:
+        run(["codesign", "--force", "--timestamp", "--sign", identity, str(dmg)], capture_output=True)
+        if notarized and not args.no_notarize:
+            log("   notarizing the disk image")
+            notarize(dmg, args.notary_profile)
+    log(f"   Gatekeeper on the disk image: {gatekeeper_verdict(dmg)}")
+
     log(f"\n:: done in {time.time() - started:.0f}s")
     log(f"   app: {app}")
     log(f"   dmg: {dmg}")
+    if not identity:
+        log("\n   Unsigned build: users will have to approve it in System Settings.")
+        log("   Install a Developer ID Application certificate to notarize instead.")
     return 0
 
 

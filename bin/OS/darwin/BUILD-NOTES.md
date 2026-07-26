@@ -162,8 +162,36 @@ The gotchas, all of which cost a build cycle:
 Distribution
 ------------
 
-The build is ad-hoc signed but **not notarized**, since that needs a paid Apple
-Developer account. Consequences, all expected:
+`package_app.py` signs with a **Developer ID Application** certificate and
+notarizes when one is installed, and falls back to an ad-hoc signature when it
+is not. Set it up once:
+
+1. Create the certificate: Xcode > Settings > Accounts > your Apple ID >
+   Manage Certificates > + > **Developer ID Application**. An "Apple
+   Development" certificate is *not* usable here; it cannot be notarized.
+2. Create an app-specific password at appleid.apple.com > Sign-In and Security,
+   then store it for `notarytool`:
+
+       xcrun notarytool store-credentials "lucaschess" \
+           --apple-id <your-apple-id> --team-id QVF7W32W9J --password <app-specific-password>
+
+After that `package_app.py` signs every Mach-O in the bundle with the hardened
+runtime and a secure timestamp, submits the app, staples the ticket, builds the
+disk image, signs and notarizes that too, and prints the Gatekeeper verdict for
+both. `--no-notarize` signs without submitting; `--identity` picks a specific
+certificate.
+
+The hardened runtime needs entitlements a frozen CPython cannot do without:
+`allow-jit` and `allow-unsigned-executable-memory` (it generates code at
+runtime), `disable-library-validation` (it dlopen()s extension modules), and
+`allow-dyld-environment-variables` (EngineRun passes `DYLD_LIBRARY_PATH` to
+engines). Sign inner binaries **before** the enclosing bundle, deepest first, or
+the outer signature seals a stale hash.
+
+### Without a Developer ID certificate
+
+The ad-hoc fallback still runs, but users meet Gatekeeper. Consequences, all
+expected:
 
 * `spctl -a --type execute` reports `rejected`.
 * A download carries `com.apple.quarantine`, and the copy dragged to
