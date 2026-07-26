@@ -10,11 +10,16 @@ here.
   <img src="../../../docs/screenshot-macos.png" alt="Lucas Chess R 6.0.4 running natively on macOS (Apple Silicon)" width="560">
 </p>
 
-    build_engines.py   builds the bundled engine sources for macOS
-    OSEngines.py       the engine catalogue (reuses the Linux one, see below)
-    run_tests.py       verification suite for the whole macOS build
-    Engines/           the macOS engine binaries and their data files
-    _build/            scratch build tree and per-engine build logs (disposable)
+    build_engines.py    builds the bundled engine sources for macOS
+    OSEngines.py        the engine catalogue (reuses the Linux one, see below)
+    run_tests.py        verification suite for a source checkout (227 checks)
+    package_app.py      builds "Lucas Chess R6.app" and a .dmg installer
+    app_launcher.py     entry point inside the packaged app
+    test_app_bundle.py  installs the .dmg the way a user does, and tests it
+    uci_probe.py        small UCI driver shared by the two test scripts
+    BUILD-NOTES.md      every gotcha found while porting; read before changing
+    Engines/            the macOS engine binaries and their data files
+    _build/             scratch build tree and per-engine build logs (disposable)
 
 
 Setting it up from a fresh clone
@@ -33,6 +38,23 @@ Setting it up from a fresh clone
     .venv/bin/python bin/OS/darwin/run_tests.py
 
 Then start it with `./LucasChess.command`, or `cd bin && ../.venv/bin/python LucasR.py`.
+
+
+Building the installer
+----------------------
+
+For people who just want to run the program, without Python or a compiler:
+
+    .venv/bin/pip install pyinstaller
+    .venv/bin/python bin/OS/darwin/package_app.py     # -> _build/dist/*.dmg
+    python3 bin/OS/darwin/test_app_bundle.py          # installs it and tests it
+
+`package_app.py` stages the program tree, primes the UCI option cache, converts
+upstream's `logo256r6.ico` into an app icon, freezes the interpreter with
+PyInstaller, ad-hoc signs the bundle and wraps it in a compressed disk image
+(about 276 MB). The build is not notarized, so the first launch needs
+right-click > Open. See [BUILD-NOTES.md](BUILD-NOTES.md) for the details that
+matter.
 
 **Git LFS is not optional.** The engines, opening books and tablebases are LFS
 objects. Cloning without `git-lfs` installed leaves pointer files behind and
