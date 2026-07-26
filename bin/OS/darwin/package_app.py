@@ -542,6 +542,27 @@ def sign_bundle(app: Path, identity: str) -> None:
     log(f"   codesign --verify --deep --strict: {'ok' if verify.returncode == 0 else verify.stderr.strip()}")
 
 
+NOTARY_KEYCHAIN_SERVICE = "lucaschess-notary"
+NOTARY_APPLE_ID = "johannes@bolzano.uk"
+
+
+def notary_auth(profile: str) -> list[str]:
+    """Arguments that authenticate notarytool.
+
+    Prefer an app-specific password kept in the ordinary keychain over
+    notarytool's own stored profile. Its profile lives in the data-protection
+    keychain, which is not reachable from a non-interactive session: the
+    credentials validate when stored and then cannot be read back, which looks
+    like the profile vanishing.
+    """
+    result = sh(
+        ["security", "find-generic-password", "-s", NOTARY_KEYCHAIN_SERVICE, "-a", NOTARY_APPLE_ID, "-w"]
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        return ["--apple-id", NOTARY_APPLE_ID, "--team-id", TEAM_ID, "--password", result.stdout.strip()]
+    return ["--keychain-profile", profile]
+
+
 def notarize(path: Path, profile: str) -> bool:
     """Submit to Apple, then staple the ticket onto the artefact.
 
@@ -556,7 +577,7 @@ def notarize(path: Path, profile: str) -> bool:
 
     log(f"   submitting {payload.name}, Apple usually takes a few minutes")
     result = sh(
-        ["xcrun", "notarytool", "submit", str(payload), "--keychain-profile", profile, "--wait", "--timeout", "45m"]
+        ["xcrun", "notarytool", "submit", str(payload)] + notary_auth(profile) + ["--wait", "--timeout", "45m"]
     )
     output = result.stdout + result.stderr
     for line in output.splitlines():
@@ -569,7 +590,7 @@ def notarize(path: Path, profile: str) -> bool:
             "",
         )
         if submission:
-            detail = sh(["xcrun", "notarytool", "log", submission, "--keychain-profile", profile])
+            detail = sh(["xcrun", "notarytool", "log", submission] + notary_auth(profile))
             log("   why it was rejected:")
             for line in detail.stdout.strip().splitlines()[:40]:
                 log(f"     {line}")
