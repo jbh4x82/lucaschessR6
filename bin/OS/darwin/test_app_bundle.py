@@ -14,8 +14,10 @@ Steps
 1. quarantine the disk image, as Safari would
 2. mount it and check it looks like an installer (app + Applications symlink)
 3. copy the app to the install directory, and confirm the copy is quarantined too
-4. report the Gatekeeper verdict, then clear quarantine, which is what
-   approving the app under System Settings > Privacy & Security does
+4. report the Gatekeeper verdict. A notarized build is launched later with the
+   quarantine flag still set, which is the whole point of notarizing; an
+   unsigned one has the flag cleared first, standing in for the user approving
+   it under System Settings > Privacy & Security
 5. make the frozen bundle import every module it ships, which is the only way
    to catch a third-party package PyInstaller did not freeze
 6. launch it, and check it stays up, writes no traceback, and puts its user data
@@ -144,21 +146,34 @@ def main() -> int:
             "this is what makes macOS warn on first open",
         )
 
-        step("4. Gatekeeper verdict (unsigned build, so a warning is expected)")
+        step("4. Gatekeeper verdict")
+        notarized = sh(["xcrun", "stapler", "validate", str(installed)]).returncode == 0
         verdict = sh(["spctl", "-a", "-vvv", "--type", "execute", str(installed)])
         gatekeeper = (verdict.stderr or verdict.stdout).strip().replace("\n", " ")
         print(f"       spctl: {gatekeeper}")
         signature = sh(["codesign", "--verify", "--deep", "--verbose=2", str(installed)])
         check(
-            "the bundle's ad-hoc signature is intact",
+            "the bundle's signature is intact",
             signature.returncode == 0,
             signature.stderr.strip().split("\n")[-1] if signature.returncode else "",
         )
-        # macOS 15 removed the Control-click > Open bypass, so the user's route is
-        # System Settings > Privacy & Security > Open Anyway. Clearing the flag is
-        # the scriptable equivalent of that approval.
-        sh(["xattr", "-dr", "com.apple.quarantine", str(installed)])
-        check("quarantine cleared, as approving it in System Settings does", not has_quarantine(installed))
+
+        if notarized:
+            # The point of notarizing: the app opens from a normal download, with
+            # the quarantine flag still on it and nothing for the user to approve.
+            check("a stapled notarization ticket is present", True)
+            check("Gatekeeper accepts it", "accepted" in gatekeeper, gatekeeper)
+            check("it is trusted as a notarized Developer ID build", "Notarized Developer ID" in gatekeeper)
+            check(
+                "still quarantined, and deliberately left that way for the launch test",
+                has_quarantine(installed),
+            )
+        else:
+            # macOS 15 removed the Control-click > Open bypass, so the user's route
+            # is System Settings > Privacy & Security > Open Anyway. Clearing the
+            # flag is the scriptable equivalent of that approval.
+            sh(["xattr", "-dr", "com.apple.quarantine", str(installed)])
+            check("quarantine cleared, as approving it in System Settings does", not has_quarantine(installed))
 
         step("5. checking the frozen bundle can import every module it ships")
         executable = installed / "Contents" / "MacOS" / "LucasChess"
@@ -179,7 +194,7 @@ def main() -> int:
             summary if not missing else "; ".join(missing[:3]),
         )
 
-        step("6. launching the installed app")
+        step("6. launching the installed app" + (" (still quarantined, as a user's download would be)" if notarized else ""))
         check("bundle executable is present and executable", os.access(executable, os.X_OK), str(executable.name))
 
         proc = subprocess.Popen(

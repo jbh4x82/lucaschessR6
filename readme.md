@@ -11,9 +11,8 @@ Lucas Chess (R6)
 >
 > **Ready to run, no Python or compiler needed:**
 > [download the disk image](https://bolzano.uk/chess/mac/) (274 MB, macOS 12+ on Apple
-> silicon). Drag it onto Applications. The build is not notarized, so the first launch is
-> blocked: click Done, then approve it once under System Settings > Privacy & Security >
-> Open Anyway. (Right-click > Open only works on macOS 14 and earlier.)
+> silicon). Signed and notarized by Apple, so it just opens: drag it onto Applications and
+> run it, with no security warning to work around.
 >
 > To build it from source instead:
 >
