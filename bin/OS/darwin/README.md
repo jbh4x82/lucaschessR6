@@ -52,9 +52,9 @@ For people who just want to run the program, without Python or a compiler:
 `package_app.py` stages the program tree, primes the UCI option cache, converts
 upstream's `logo256r6.ico` into an app icon, freezes the interpreter with
 PyInstaller, ad-hoc signs the bundle and wraps it in a compressed disk image
-(about 276 MB). The build is not notarized, so the first launch needs
-right-click > Open. See [BUILD-NOTES.md](BUILD-NOTES.md) for the details that
-matter.
+(about 274 MB). The build is not notarized, so the first launch has to be
+approved once under System Settings > Privacy & Security > Open Anyway. See
+[BUILD-NOTES.md](BUILD-NOTES.md) for the details that matter.
 
 **Git LFS is not optional.** The engines, opening books and tablebases are LFS
 objects. Cloning without `git-lfs` installed leaves pointer files behind and

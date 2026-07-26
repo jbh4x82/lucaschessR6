@@ -45,6 +45,26 @@ ICON_ICNS = BUILD_DIR / "LucasChess.icns"
 SOURCE_ICO = BIN_DIR / "_genicons" / "lucas" / "logo256r6.ico"
 
 APP_NAME = "Lucas Chess R6"
+
+# Shown in the disk image. macOS 15 removed the old right-click > Open bypass,
+# so unsigned apps now have to be approved in System Settings.
+GATEKEEPER_INSTRUCTIONS = """The first time you open it, macOS will refuse and say it "could not verify
+this app is free of malware". That is because the app is not notarized with a
+paid Apple Developer certificate, not because anything is wrong with it.
+
+To open it:
+  1. Click Done. Do NOT click "Move to Bin".
+  2. Open System Settings > Privacy & Security and scroll down to Security.
+  3. Next to the message about Lucas Chess R6, click "Open Anyway", then
+     authenticate and confirm.
+You only need to do this once.
+
+On macOS 14 and earlier you can instead right-click the app and choose Open.
+That shortcut was removed in macOS 15.
+
+If you prefer the Terminal, this does the same thing in one step:
+  xattr -dr com.apple.quarantine "/Applications/Lucas Chess R6.app"
+"""
 BUNDLE_ID = "com.lucaschess.r6.macos"
 
 # Qt ships far more than this program uses (it needs QtCore, QtGui, QtWidgets,
@@ -456,10 +476,8 @@ def build_dmg(app: Path) -> Path:
         f"{APP_NAME} for macOS (Apple Silicon)\n"
         "=======================================\n\n"
         "Drag the app onto the Applications folder, then open it from there.\n\n"
-        "The first time, macOS will say the app is from an unidentified developer,\n"
-        "because it is not signed with a paid Apple Developer certificate. To open\n"
-        "it: right-click (or Control-click) the app and choose Open, then confirm.\n"
-        "You only need to do this once.\n\n"
+        + GATEKEEPER_INSTRUCTIONS
+        + "\n"
         "Settings, games and results are kept in\n"
         "  ~/Library/Application Support/Lucas Chess R6\n"
         "so deleting the app leaves your data alone.\n\n"

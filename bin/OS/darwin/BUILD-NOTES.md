@@ -167,11 +167,18 @@ Developer account. Consequences, all expected:
 
 * `spctl -a --type execute` reports `rejected`.
 * A download carries `com.apple.quarantine`, and the copy dragged to
-  Applications inherits it, so the first open shows "Apple cannot check it for
-  malicious software". Right-click (or Control-click) the app and choose Open;
-  once only.
-* `test_app_bundle.py` reproduces exactly that path: it quarantines the image
-  the way Safari would, mounts it, installs to `/Applications`, reports the
-  Gatekeeper verdict, then clears the flag as right-click > Open does, and only
-  then checks that the app runs, that the bundled engines play, and that
-  nothing was written inside the bundle.
+  Applications inherits it, so the first open is refused with "Apple could not
+  verify this app is free of malware".
+* **macOS 15 removed the Control-click > Open bypass.** On Sequoia and later the
+  only route is: click Done, then System Settings > Privacy & Security > scroll
+  to Security > "Open Anyway", then authenticate. The dialog itself offers only
+  "Done" and "Move to Bin", which reads like a dead end, so say this plainly
+  anywhere the download is offered. `xattr -dr com.apple.quarantine <app>` is
+  the equivalent from a terminal.
+* `test_app_bundle.py` reproduces that path: it quarantines the image the way
+  Safari would, mounts it, installs to `/Applications`, reports the Gatekeeper
+  verdict, then clears the flag the way the user's approval does, and only then
+  checks that the app runs, that the bundled engines play, and that nothing was
+  written inside the bundle. Note that clearing the flag is what the *approval*
+  does; the test deliberately does not assert the app opens while quarantined,
+  because on macOS 15+ it will not.

@@ -15,7 +15,7 @@ Steps
 2. mount it and check it looks like an installer (app + Applications symlink)
 3. copy the app to the install directory, and confirm the copy is quarantined too
 4. report the Gatekeeper verdict, then clear quarantine, which is what
-   right-click > Open does for the user
+   approving the app under System Settings > Privacy & Security does
 5. make the frozen bundle import every module it ships, which is the only way
    to catch a third-party package PyInstaller did not freeze
 6. launch it, and check it stays up, writes no traceback, and puts its user data
@@ -154,10 +154,11 @@ def main() -> int:
             signature.returncode == 0,
             signature.stderr.strip().split("\n")[-1] if signature.returncode else "",
         )
-        # Right-click > Open is the user's way past this; clearing the flag is
-        # the scriptable equivalent.
+        # macOS 15 removed the Control-click > Open bypass, so the user's route is
+        # System Settings > Privacy & Security > Open Anyway. Clearing the flag is
+        # the scriptable equivalent of that approval.
         sh(["xattr", "-dr", "com.apple.quarantine", str(installed)])
-        check("quarantine cleared, as right-click > Open does", not has_quarantine(installed))
+        check("quarantine cleared, as approving it in System Settings does", not has_quarantine(installed))
 
         step("5. checking the frozen bundle can import every module it ships")
         executable = installed / "Contents" / "MacOS" / "LucasChess"
