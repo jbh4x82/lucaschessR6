@@ -635,6 +635,48 @@ def build_dmg(app: Path) -> Path:
     return dmg
 
 
+def resume(args, started: float) -> int:
+    """Finish a run whose app was already built, signed and submitted.
+
+    Notarization is asynchronous and can outlive the build process. The ticket
+    lives on Apple's servers, so once the submission is accepted `stapler` can
+    attach it to the app that is already on disk, and only the disk image still
+    needs building and notarizing."""
+    app = DIST_DIR / f"{APP_NAME}.app"
+    if not app.is_dir():
+        raise SystemExit(f"nothing to resume: {app} does not exist")
+
+    verify = sh(["codesign", "--verify", "--deep", "--strict", str(app)])
+    log(f":: reusing {app.name}, signature {'valid' if verify.returncode == 0 else 'INVALID'}")
+
+    log(":: stapling the notarization ticket to the app")
+    staple = sh(["xcrun", "stapler", "staple", str(app)])
+    if staple.returncode != 0:
+        log(f"   {staple.stdout.strip() or staple.stderr.strip()}")
+        log("   the submission is probably not accepted yet: xcrun notarytool history --keychain-profile "
+            f"{args.notary_profile}")
+        return 1
+    log("   stapled")
+
+    log(":: building the disk image")
+    dmg = build_dmg(app)
+    log(f"   {dmg.name}: {dmg.stat().st_size / 1e6:.0f} MB")
+
+    identity = find_signing_identity(args.identity)
+    if identity:
+        run(["codesign", "--force", "--timestamp", "--sign", identity, str(dmg)], capture_output=True)
+        if not args.no_notarize:
+            log(":: notarizing the disk image")
+            notarize(dmg, args.notary_profile)
+
+    log(f"   Gatekeeper on the app: {gatekeeper_verdict(app)}")
+    log(f"   Gatekeeper on the disk image: {gatekeeper_verdict(dmg)}")
+    log(f"\n:: done in {time.time() - started:.0f}s")
+    log(f"   app: {app}")
+    log(f"   dmg: {dmg}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--no-dmg", action="store_true", help="stop after building the .app")
@@ -648,6 +690,12 @@ def main() -> int:
         help="notarytool keychain profile, created with: xcrun notarytool store-credentials",
     )
     parser.add_argument("--no-notarize", action="store_true", help="sign but do not submit to Apple")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="reuse the .app already in _build/dist: staple its notarization ticket, then "
+        "build, sign and notarize the disk image. For when a submission outlives the build.",
+    )
     args = parser.parse_args()
 
     if sys.platform != "darwin":
@@ -656,6 +704,9 @@ def main() -> int:
 
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     started = time.time()
+
+    if args.resume:
+        return resume(args, started)
 
     log(":: 1/6 priming the UCI option cache")
     prime_uci_options()
