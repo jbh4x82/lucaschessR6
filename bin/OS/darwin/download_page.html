@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lucas Chess {{VERSION}} for macOS (Apple Silicon)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 44rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem;
+  }
+  h1 { font-size: 1.7rem; margin-bottom: .25rem; }
+  .sub { color: #6b7280; margin-top: 0; }
+  .download {
+    display: inline-block; margin: 1.5rem 0 .5rem; padding: .8rem 1.4rem;
+    background: #2f6f4f; color: #fff; border-radius: .5rem;
+    text-decoration: none; font-weight: 600;
+  }
+  .download:hover { background: #255a40; }
+  .meta { color: #6b7280; font-size: .9rem; }
+  code, .hash { font-family: ui-monospace, Menlo, Monaco, monospace; font-size: .85rem; }
+  .hash { word-break: break-all; color: #6b7280; }
+  ol { padding-left: 1.2rem; }
+  .note { border-left: 3px solid #d1d5db; padding-left: 1rem; margin: 1.5rem 0; color: #4b5563; }
+  footer { margin-top: 3rem; font-size: .9rem; color: #6b7280; }
+  a { color: #2f6f4f; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181c; color: #e5e7eb; }
+    .sub, .meta, .hash, .note { color: #9ca3af; }
+    a { color: #7fb99a; }
+    .note { border-left-color: #374151; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Lucas Chess {{VERSION}} for macOS</h1>
+<p class="sub">Native Apple Silicon (arm64) build</p>
+
+<p>
+  <a class="download" href="{{DMG_NAME}}">Download the disk image ({{SIZE_MB}} MB)</a>
+</p>
+<p class="meta">
+  Requires macOS 12 or later on an Apple Silicon Mac. No Python, no Homebrew and no
+  compiler needed.<br>
+  SHA-256 <span class="hash">{{SHA256}}</span>
+</p>
+
+<h2>Installing</h2>
+{{INSTALL_STEPS}}
+
+<h2>What is in it</h2>
+<p>
+  The full program, with the FasterCode engine compiled for arm64 and {{ENGINE_COUNT}} of the
+  bundled chess engines built from their own sources, among them Stockfish 18 and Lucas
+  Monge's Irina. Settings, games and results are kept in
+  <code>~/Library/Application Support/Lucas Chess R6</code>, so removing the app leaves
+  your data untouched.
+</p>
+
+<h2>Source</h2>
+<p>
+  Build scripts, the list of what does and does not compile on Apple Silicon, and the
+  test suites are in the fork this was built from:<br>
+  <a href="https://github.com/jbh4x82/lucaschessR6/tree/macos-arm64">github.com/jbh4x82/lucaschessR6</a>
+</p>
+
+<footer>
+  Lucas Chess is written by Lucas Monge and licensed under the GPL v3.
+  Upstream project: <a href="https://lucaschess.pythonanywhere.com/">lucaschess.pythonanywhere.com</a>.
+  This page hosts an unofficial macOS build. Updated {{BUILD_DATE}}.
+</footer>
+
+</body>
+</html>

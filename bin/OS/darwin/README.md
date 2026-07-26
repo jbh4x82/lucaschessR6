@@ -17,7 +17,10 @@ here.
     app_launcher.py     entry point inside the packaged app
     test_app_bundle.py  installs the .dmg the way a user does, and tests it
     uci_probe.py        small UCI driver shared by the two test scripts
+    publish.py          uploads the image and regenerates the download page
+    download_page.html  template for that page
     BUILD-NOTES.md      every gotcha found while porting; read before changing
+    RELEASING.md        how to fold a new upstream release into a new disk image
     Engines/            the macOS engine binaries and their data files
     _build/             scratch build tree and per-engine build logs (disposable)
 
@@ -48,6 +51,9 @@ For people who just want to run the program, without Python or a compiler:
     .venv/bin/pip install pyinstaller
     .venv/bin/python bin/OS/darwin/package_app.py     # -> _build/dist/*.dmg
     python3 bin/OS/darwin/test_app_bundle.py          # installs it and tests it
+
+When upstream tags a new release, [RELEASING.md](RELEASING.md) is the process for
+turning it into a new disk image, with a checklist at the end.
 
 `package_app.py` stages the program tree, primes the UCI option cache, converts
 upstream's `logo256r6.ico` into an app icon, freezes the interpreter with
